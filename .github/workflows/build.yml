@@ -2,7 +2,8 @@ name: Build TrollVNC
 
 on:
   push:
-    branches: [release]
+    branches: [main]
+    paths: [".github/workflows/build.yml"]
   workflow_dispatch:
     inputs:
       is_managed:
@@ -68,13 +69,17 @@ env:
   HOMEBREW_NO_AUTO_UPDATE: 1
   HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
 
+permissions:
+  contents: read
+
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
+    timeout-minutes: 40
 
     strategy:
       matrix:
-        scheme: ["default", "rootless", "roothide", "bootstrap"]
+        scheme: ["bootstrap"]
 
     steps:
       - name: Checkout repository
@@ -176,38 +181,5 @@ jobs:
         with:
           name: packages-${{ matrix.scheme }}
           path: artifacts/packages-${{ matrix.scheme }}
-          if-no-files-found: warn
-
-  release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
-    needs: build
-    runs-on: macos-14
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download all package artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: packages-*
-          path: release-packages
-          merge-multiple: true
-
-      - name: Create release tag
-        id: tag
-        run: |
-          # Read PACKAGE_VERSION from Makefile
-          PACKAGE_VERSION=$(grep 'PACKAGE_VERSION' Makefile | cut -d' ' -f4)
-          TAG_NAME="v$PACKAGE_VERSION"
-          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.tag.outputs.tag_name }}
-          name: Release ${{ steps.tag.outputs.tag_name }}
-          body_path: CHANGELOG.md
-          files: release-packages/**/*
-          draft: false
-          prerelease: false
+          if-no-files-found: error
+          retention-days: 3
